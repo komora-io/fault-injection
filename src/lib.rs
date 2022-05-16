@@ -63,21 +63,18 @@ pub static SLEEPINESS: core::sync::atomic::AtomicU32 = core::sync::atomic::Atomi
 #[macro_export]
 macro_rules! fallible {
     ($e:expr) => {{
-        const CRATE_NAME: &str = if let Some(name) = core::option_env!("CARGO_CRATE_NAME") {
-            name
-        } else {
-            ""
-        };
+        fault_injection::maybe!($e)?
+    }};
+}
 
-        if fault_injection::FAULT_INJECT_COUNTER.fetch_sub(1, core::sync::atomic::Ordering::AcqRel)
-            == 1
-        {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("injected fault at {}:{}:{}", CRATE_NAME, file!(), line!()),
-            )).into();
-        }
-
+/// Performs the same fault injection as [`fallible`] but does not
+/// early-return, and does not try to convert the injected
+/// `io::Error` using the `?` operator.
+///
+/// [`fallible`]: fallible
+#[macro_export]
+macro_rules! maybe {
+    ($e:expr) => {{
         let sleepiness = fault_injection::SLEEPINESS.load(core::sync::atomic::Ordering::Acquire);
         if sleepiness > 0 {
             #[cfg(target_arch = "x86")]
@@ -96,20 +93,35 @@ macro_rules! fallible {
             }
         }
 
-        // annotates io::Error to include the source of the error
-        match $e {
-            Ok(ok) => ok,
-            Err(e) => {
-                return Err(std::io::Error::new(
-                    e.kind(),
-                    format!(
-                        "{}:{}:{} -> {}",
-                        CRATE_NAME,
-                        file!(),
-                        line!(),
-                        e.to_string()
-                    ),
-                )).into()
+        const CRATE_NAME: &str = if let Some(name) = core::option_env!("CARGO_CRATE_NAME") {
+            name
+        } else {
+            ""
+        };
+
+        if fault_injection::FAULT_INJECT_COUNTER.fetch_sub(1, core::sync::atomic::Ordering::AcqRel)
+            == 1
+        {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("injected fault at {}:{}:{}", CRATE_NAME, file!(), line!()),
+            ))
+        } else {
+            // annotates io::Error to include the source of the error
+            match $e {
+                Ok(ok) => Ok(ok),
+                Err(e) => {
+                    Err(std::io::Error::new(
+                        e.kind(),
+                        format!(
+                            "{}:{}:{} -> {}",
+                            CRATE_NAME,
+                            file!(),
+                            line!(),
+                            e.to_string()
+                        ),
+                    ))
+                }
             }
         }
     }};
