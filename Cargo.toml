@@ -1,6 +1,6 @@
 [package]
 name = "fault-injection"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 authors = ["Tyler Neely <tylerneely@gmail.com>"]
 description = "Simple fault injection, concurrency delay injection, and error source annotation"
@@ -9,5 +9,6 @@ repository = "https://github.com/komora-io/fault-injection"
 documentation = "https://docs.rs/fault-injection/"
 keywords = ["fault", "injection", "testing", "reliability", "crash"]
 categories = ["development-tools", "concurrency", "filesystem", "network-programming", "rust-patterns"]
+readme = "README.md"
 
 [dependencies]
