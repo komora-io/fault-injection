@@ -20,6 +20,24 @@ pub static FAULT_INJECT_COUNTER: core::sync::atomic::AtomicU64 =
 /// to play with the number sometimes for specific concurrent systems under test.
 pub static SLEEPINESS: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
 
+#[doc(hidden)]
+pub type Trigger = fn(&'static str, &'static str, u32);
+
+/// This function will be called any time the [`FAULT_INJECT_COUNTER`] reaches 0
+/// and an error is injected. You can use this to re-set the counter for deep
+/// fault tree enumeration, test auditing, etc...
+///
+/// The function accepts the crate name, file name, and line number as arguments.
+///
+/// [`FAULT_INJECT_COUNTER`]: FAULT_INJECT_COUNTER
+pub fn set_trigger_function(f: Trigger) {
+    TRIGGER_FN.store(f as usize as _, core::sync::atomic::Ordering::Release);
+}
+
+#[doc(hidden)]
+pub static TRIGGER_FN: core::sync::atomic::AtomicPtr<Trigger> =
+    core::sync::atomic::AtomicPtr::new(0 as usize as _);
+
 /// Similar to the `try!` macro or `?` operator,
 /// but externally controllable to inject faults
 /// during testing. Unlike the `try!` macro or `?`
@@ -41,20 +59,32 @@ pub static SLEEPINESS: core::sync::atomic::AtomicU32 = core::sync::atomic::Atomi
 ///
 /// # Examples
 /// ```
-/// use fault_injection::{fallible, FAULT_INJECT_COUNTER};
+/// use std::io;
 ///
-/// fn do_io() -> std::io::Result<()> {
+/// use fault_injection::{fallible, set_trigger_function, FAULT_INJECT_COUNTER};
+///
+/// fn trigger_fn(crate_name: &str, file_name: &str, line_number: u32) {
+///     println!(
+///         "fault injected at {} {} {}",
+///         crate_name, file_name, line_number
+///     );
+/// }
+///
+/// fn do_io() -> io::Result<()> {
 ///     Ok(())
 /// }
 ///
 /// // this will return an injected error
 /// fn use_it() -> std::io::Result<()> {
+///     set_trigger_function(trigger_fn);
 ///     FAULT_INJECT_COUNTER.store(1, std::sync::atomic::Ordering::Release);
 ///
 ///     fallible!(do_io());
 ///
 ///     Ok(())
 /// }
+///
+/// assert!(use_it().is_err());
 /// ```
 ///
 ///
@@ -84,7 +114,7 @@ macro_rules! maybe {
             let rdtsc = unsafe { core::arch::x86_64::_rdtsc() as u16 };
 
             #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-            let rdtsc = 0;
+            let rdtsc = 0b10;
 
             let random_sleeps = rdtsc.trailing_zeros() as u32 * sleepiness;
 
@@ -102,6 +132,14 @@ macro_rules! maybe {
         if fault_injection::FAULT_INJECT_COUNTER.fetch_sub(1, core::sync::atomic::Ordering::AcqRel)
             == 1
         {
+            let trigger_fn = fault_injection::TRIGGER_FN.load(core::sync::atomic::Ordering::Acquire);
+            if !trigger_fn.is_null() {
+                unsafe {
+                    let f: fault_injection::Trigger = std::mem::transmute(trigger_fn);
+                    (f)(CRATE_NAME, file!(), line!());
+                }
+            }
+
             Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("injected fault at {}:{}:{}", CRATE_NAME, file!(), line!()),
