@@ -30,7 +30,9 @@ pub type Trigger = fn(&'static str, &'static str, u32);
 /// The function accepts the crate name, file name, and line number as arguments.
 ///
 /// [`FAULT_INJECT_COUNTER`]: FAULT_INJECT_COUNTER
-pub fn set_trigger_function(f: Trigger) {
+pub fn set_trigger_function(
+    f: fn(crate_name: &'static str, file_name: &'static str, line_number: u32),
+) {
     TRIGGER_FN.store(f as usize as _, core::sync::atomic::Ordering::Release);
 }
 
