@@ -116,7 +116,7 @@ macro_rules! maybe {
             let rdtsc = unsafe { core::arch::x86_64::_rdtsc() as u16 };
 
             #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-            let rdtsc = 0b10;
+            let rdtsc = 0b10_u16;
 
             let random_sleeps = rdtsc.trailing_zeros() as u32 * sleepiness;
 
