@@ -142,15 +142,14 @@ macro_rules! maybe {
                 }
             }
 
-            Err(annotate(std::io::Error::new(
+            Err(fault_injection::annotate(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 "injected fault",
             )))
         } else {
-            // annotates io::Error to include the source of the error
             match $e {
                 Ok(ok) => Ok(ok),
-                Err(e) => Err(annotate(e)),
+                Err(e) => Err(fault_injection::annotate(e)),
             }
         }
     }};
