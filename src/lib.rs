@@ -142,14 +142,14 @@ macro_rules! maybe {
                 }
             }
 
-            Err(fault_injection::annotate(std::io::Error::new(
+            Err(fault_injection::annotate!(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 "injected fault",
             )))
         } else {
             match $e {
                 Ok(ok) => Ok(ok),
-                Err(e) => Err(fault_injection::annotate(e)),
+                Err(e) => Err(fault_injection::annotate!(e)),
             }
         }
     }};
@@ -157,21 +157,24 @@ macro_rules! maybe {
 
 /// Annotates an io::Error with the crate, file, and line number
 /// where the annotation has been performed.
-pub fn annotate(error: std::io::Error) -> std::io::Error {
-    const CRATE_NAME: &str = if let Some(name) = core::option_env!("CARGO_CRATE_NAME") {
-        name
-    } else {
-        ""
-    };
+#[macro_export]
+macro_rules! annotate {
+    ($e:expr) => {{
+        const CRATE_NAME: &str = if let Some(name) = core::option_env!("CARGO_CRATE_NAME") {
+            name
+        } else {
+            ""
+        };
 
-    std::io::Error::new(
-        error.kind(),
-        format!(
-            "{}:{}:{} -> {}",
-            CRATE_NAME,
-            file!(),
-            line!(),
-            error.to_string()
-        ),
-    )
+        std::io::Error::new(
+            $e.kind(),
+            format!(
+                "{}:{}:{} -> {}",
+                CRATE_NAME,
+                file!(),
+                line!(),
+                $e.to_string()
+            ),
+        )
+    }};
 }
