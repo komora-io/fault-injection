@@ -142,27 +142,37 @@ macro_rules! maybe {
                 }
             }
 
-            Err(std::io::Error::new(
+            Err(annotate(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                format!("injected fault at {}:{}:{}", CRATE_NAME, file!(), line!()),
-            ))
+                "injected fault",
+            )))
         } else {
             // annotates io::Error to include the source of the error
             match $e {
                 Ok(ok) => Ok(ok),
-                Err(e) => {
-                    Err(std::io::Error::new(
-                        e.kind(),
-                        format!(
-                            "{}:{}:{} -> {}",
-                            CRATE_NAME,
-                            file!(),
-                            line!(),
-                            e.to_string()
-                        ),
-                    ))
-                }
+                Err(e) => Err(annotate(e)),
             }
         }
     }};
+}
+
+/// Annotates an io::Error with the crate, file, and line number
+/// where the annotation has been performed.
+pub fn annotate(error: std::io::Error) -> std::io::Error {
+    const CRATE_NAME: &str = if let Some(name) = core::option_env!("CARGO_CRATE_NAME") {
+        name
+    } else {
+        ""
+    };
+
+    std::io::Error::new(
+        error.kind(),
+        format!(
+            "{}:{}:{} -> {}",
+            CRATE_NAME,
+            file!(),
+            line!(),
+            error.to_string()
+        ),
+    )
 }
