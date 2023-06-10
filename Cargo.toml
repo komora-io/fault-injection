@@ -1,10 +1,10 @@
 [package]
 name = "fault-injection"
-version = "1.0.7"
+version = "1.0.8"
 edition = "2021"
 authors = ["Tyler Neely <tylerneely@gmail.com>"]
 description = "Simple fault injection, concurrency delay injection, and error source annotation"
-license = "GPL-3.0"
+license = "MIT/Apache-2.0"
 repository = "https://github.com/komora-io/fault-injection"
 documentation = "https://docs.rs/fault-injection/"
 keywords = ["fault", "injection", "testing", "reliability", "crash"]
