@@ -21,7 +21,7 @@ pub static FAULT_INJECT_COUNTER: core::sync::atomic::AtomicU64 =
 pub static SLEEPINESS: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
 
 #[doc(hidden)]
-pub type Trigger = fn(&'static str, &'static str, u32);
+pub type Trigger = fn(crate_name: &'static str, file_name: &'static str, line_number: u32);
 
 /// This function will be called any time the [`FAULT_INJECT_COUNTER`] reaches 0
 /// and an error is injected. You can use this to re-set the counter for deep
@@ -30,15 +30,16 @@ pub type Trigger = fn(&'static str, &'static str, u32);
 /// The function accepts the crate name, file name, and line number as arguments.
 ///
 /// [`FAULT_INJECT_COUNTER`]: FAULT_INJECT_COUNTER
-pub fn set_trigger_function(
-    f: fn(crate_name: &'static str, file_name: &'static str, line_number: u32),
-) {
-    TRIGGER_FN.store(f as usize as _, core::sync::atomic::Ordering::Release);
+pub fn set_trigger_function(f: Trigger) {
+    TRIGGER_FN.store(
+        f as usize as *mut Trigger,
+        core::sync::atomic::Ordering::Release,
+    );
 }
 
 #[doc(hidden)]
 pub static TRIGGER_FN: core::sync::atomic::AtomicPtr<Trigger> =
-    core::sync::atomic::AtomicPtr::new(0 as usize as _);
+    core::sync::atomic::AtomicPtr::new(0 as _);
 
 /// Similar to the `try!` macro or `?` operator,
 /// but externally controllable to inject faults
@@ -137,7 +138,7 @@ macro_rules! maybe {
             let trigger_fn = fault_injection::TRIGGER_FN.load(core::sync::atomic::Ordering::Acquire);
             if !trigger_fn.is_null() {
                 unsafe {
-                    let f: fault_injection::Trigger = std::mem::transmute(trigger_fn);
+                    let f: &fault_injection::Trigger = std::mem::transmute(&trigger_fn);
                     (f)(CRATE_NAME, file!(), line!());
                 }
             }

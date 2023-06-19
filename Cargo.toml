@@ -1,6 +1,6 @@
 [package]
 name = "fault-injection"
-version = "1.0.8"
+version = "1.0.9"
 edition = "2021"
 authors = ["Tyler Neely <tylerneely@gmail.com>"]
 description = "Simple fault injection, concurrency delay injection, and error source annotation"
