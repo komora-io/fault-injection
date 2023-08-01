@@ -134,6 +134,7 @@ macro_rules! maybe {
         {
             let trigger_fn = fault_injection::TRIGGER_FN.load(core::sync::atomic::Ordering::Acquire);
             if !trigger_fn.is_null() {
+                // SAFETY: `trigger_fn` is non-null and was set to a valid function pointer with `set_trigger_function`.
                 unsafe {
                     let f: fault_injection::Trigger = core::mem::transmute(trigger_fn);
                     (f)(CRATE_NAME, file!(), line!());
