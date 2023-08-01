@@ -31,15 +31,12 @@ pub type Trigger = fn(crate_name: &'static str, file_name: &'static str, line_nu
 ///
 /// [`FAULT_INJECT_COUNTER`]: FAULT_INJECT_COUNTER
 pub fn set_trigger_function(f: Trigger) {
-    TRIGGER_FN.store(
-        f as usize as *mut Trigger,
-        core::sync::atomic::Ordering::Release,
-    );
+    TRIGGER_FN.store(f as *mut (), core::sync::atomic::Ordering::Release);
 }
 
 #[doc(hidden)]
-pub static TRIGGER_FN: core::sync::atomic::AtomicPtr<Trigger> =
-    core::sync::atomic::AtomicPtr::new(0 as _);
+pub static TRIGGER_FN: core::sync::atomic::AtomicPtr<()> =
+    core::sync::atomic::AtomicPtr::new(core::ptr::null_mut());
 
 /// Similar to the `try!` macro or `?` operator,
 /// but externally controllable to inject faults
@@ -138,7 +135,7 @@ macro_rules! maybe {
             let trigger_fn = fault_injection::TRIGGER_FN.load(core::sync::atomic::Ordering::Acquire);
             if !trigger_fn.is_null() {
                 unsafe {
-                    let f: &fault_injection::Trigger = std::mem::transmute(&trigger_fn);
+                    let f: fault_injection::Trigger = core::mem::transmute(trigger_fn);
                     (f)(CRATE_NAME, file!(), line!());
                 }
             }
