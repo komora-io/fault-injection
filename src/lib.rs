@@ -96,7 +96,7 @@ pub static TRIGGER_FN: core::sync::atomic::AtomicPtr<Trigger> =
 #[macro_export]
 macro_rules! fallible {
     ($e:expr) => {{
-        fault_injection::maybe!($e)?
+        $crate::maybe!($e)?
     }};
 }
 
@@ -108,49 +108,50 @@ macro_rules! fallible {
 #[macro_export]
 macro_rules! maybe {
     ($e:expr) => {{
-        let sleepiness = fault_injection::SLEEPINESS.load(core::sync::atomic::Ordering::Acquire);
+        let sleepiness = $crate::SLEEPINESS.load(::core::sync::atomic::Ordering::Acquire);
         if sleepiness > 0 {
             #[cfg(target_arch = "x86")]
-            let rdtsc = unsafe { core::arch::x86::_rdtsc() as u16 };
+            let rdtsc = unsafe { ::core::arch::x86::_rdtsc() as ::core::primitive::u16 };
 
             #[cfg(target_arch = "x86_64")]
-            let rdtsc = unsafe { core::arch::x86_64::_rdtsc() as u16 };
+            let rdtsc = unsafe { ::core::arch::x86_64::_rdtsc() as ::core::primitive::u16 };
 
             #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
             let rdtsc = 0b10_u16;
 
-            let random_sleeps = rdtsc.trailing_zeros() as u32 * sleepiness;
+            let random_sleeps = rdtsc.trailing_zeros() as ::core::primitive::u32 * sleepiness;
 
             for _ in 0..random_sleeps {
-                std::thread::yield_now();
+                ::std::thread::yield_now();
             }
         }
 
-        const CRATE_NAME: &str = if let Some(name) = core::option_env!("CARGO_CRATE_NAME") {
-            name
-        } else {
-            ""
-        };
+        const CRATE_NAME: &::core::primitive::str =
+            if let ::core::option::Option::Some(name) = ::core::option_env!("CARGO_CRATE_NAME") {
+                name
+            } else {
+                ""
+            };
 
-        if fault_injection::FAULT_INJECT_COUNTER.fetch_sub(1, core::sync::atomic::Ordering::AcqRel)
+        if $crate::FAULT_INJECT_COUNTER.fetch_sub(1, ::core::sync::atomic::Ordering::AcqRel)
             == 1
         {
-            let trigger_fn = fault_injection::TRIGGER_FN.load(core::sync::atomic::Ordering::Acquire);
+            let trigger_fn = $crate::TRIGGER_FN.load(::core::sync::atomic::Ordering::Acquire);
             if !trigger_fn.is_null() {
                 unsafe {
-                    let f: &fault_injection::Trigger = std::mem::transmute(&trigger_fn);
-                    (f)(CRATE_NAME, file!(), line!());
+                    let f: &$crate::Trigger = ::core::mem::transmute(&trigger_fn);
+                    (f)(CRATE_NAME, ::core::file!(), ::core::line!());
                 }
             }
 
-            Err(fault_injection::annotate!(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            ::core::result::Result::Err($crate::annotate!(::std::io::Error::new(
+                ::std::io::ErrorKind::Other,
                 "injected fault",
             )))
         } else {
             match $e {
-                Ok(ok) => Ok(ok),
-                Err(e) => Err(fault_injection::annotate!(e)),
+                ::core::result::Result::Ok(ok) => ::core::result::Result::Ok(ok),
+                ::core::result::Result::Err(e) => ::core::result::Result::Err($crate::annotate!(e)),
             }
         }
     }};
@@ -161,20 +162,23 @@ macro_rules! maybe {
 #[macro_export]
 macro_rules! annotate {
     ($e:expr) => {{
-        const CRATE_NAME: &str = if let Some(name) = core::option_env!("CARGO_CRATE_NAME") {
-            name
-        } else {
-            ""
-        };
+        let e: ::std::io::Error = $e;
 
-        std::io::Error::new(
-            $e.kind(),
-            format!(
+        const CRATE_NAME: &::core::primitive::str =
+            if let ::core::option::Option::Some(name) = ::core::option_env!("CARGO_CRATE_NAME") {
+                name
+            } else {
+                ""
+            };
+
+        ::std::io::Error::new(
+            e.kind(),
+            ::std::format!(
                 "{}:{}:{} -> {}",
                 CRATE_NAME,
-                file!(),
-                line!(),
-                $e.to_string()
+                ::core::file!(),
+                ::core::line!(),
+                e
             ),
         )
     }};
