@@ -1,6 +1,6 @@
 /// Facilitates fault injection. Every time any IO operation
 /// is performed, this is decremented. If it hits 0, an
-/// io::Error is returned from that IO operation. Use this
+/// `io::Error` is returned from that IO operation. Use this
 /// to ensure that error handling is being performed, by
 /// running some test workload, checking the counter, and
 /// then setting this to an incrementally-lower number while
@@ -156,7 +156,7 @@ macro_rules! maybe {
     }};
 }
 
-/// Annotates an io::Error with the crate, file, and line number
+/// Annotates an `io::Error` with the crate, file, and line number
 /// where the annotation has been performed.
 #[macro_export]
 macro_rules! annotate {
